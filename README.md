@@ -31,3 +31,4 @@
 - You can select between Gemini (Google) and OpenAI as the LLM provider in the sidebar of the web app.
 - For best results and free usage, use Gemini with your Google API key.
 - For more information on Gemini API keys, visit [Google AI Studio](https://aistudio.google.com/).
+- **Important:** The PDF you upload should be in the same format as those from examtopics, with each question and its options clearly listed. Other formats may not be parsed correctly.
