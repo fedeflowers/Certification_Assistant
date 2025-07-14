@@ -206,10 +206,10 @@ def run_quiz_app():
     options = question["options"]
     selected_key = f"answer_{question['id']}_{st.session_state.block_selected}"
     current_answer_for_question = st.session_state.block_answers.get(question["id"])
-    try:
-        current_radio_index = options.index(current_answer_for_question) if current_answer_for_question in options else 0
-    except ValueError:
-        current_radio_index = 0
+    if current_answer_for_question in options:
+        current_radio_index = options.index(current_answer_for_question)
+    else:
+        current_radio_index = None
     st.radio(
         "Select your answer:",
         options=options,
