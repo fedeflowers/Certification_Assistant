@@ -21,6 +21,15 @@ def run_quiz_app():
     st.title("📚 Certification Quiz Viewer")
     st.markdown("Select a certification and question block.")
 
+    # --- LLM provider selection (always visible) ---
+    if "llm_provider" not in st.session_state:
+        st.session_state.llm_provider = "OpenAI"
+    if "gemini_api_key" not in st.session_state:
+        st.session_state.gemini_api_key = ""
+    st.sidebar.markdown("### LLM Provider")
+    st.session_state.llm_provider = st.sidebar.selectbox(
+        "LLM Provider", ["OpenAI", "Gemini (Google)"], index=0 if st.session_state.llm_provider=="OpenAI" else 1, key="llm_provider_select")
+
     conn = get_conn()
     create_table(conn)
     create_user_progress_table(conn)

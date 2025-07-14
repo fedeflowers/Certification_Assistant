@@ -4,3 +4,4 @@ openai
 psycopg2-binary
 streamlit
 pdfplumber
+langchain-google-genai

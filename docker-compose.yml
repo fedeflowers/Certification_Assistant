@@ -12,7 +12,8 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
-      - OPENAI_API_KEY=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
+      - OPENAI_API_KEY=x
+      - GOOGLE_API_KEY=x
     depends_on:
       - db
 
