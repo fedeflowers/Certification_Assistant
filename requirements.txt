@@ -1,7 +1,0 @@
-langchain
-langchain_community
-openai
-psycopg2-binary
-streamlit
-pdfplumber
-langchain-google-genai
