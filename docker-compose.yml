@@ -1,34 +1,71 @@
 services:
-  web:
-    build: .
-    container_name: streamlit_app
+  frontend:
+    build: ./frontend
+    container_name: certification_frontend
     ports:
-      - "8501:8501"
+      - "3000:3000"
     volumes:
-      - .:/app
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=postgres
-      - OPENAI_API_KEY=x
-      - GOOGLE_API_KEY=x
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=development
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    container_name: certification_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - pdf-storage:/data
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/certification_db
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - DATA_PATH=/data
+      - CORS_ORIGINS=http://localhost:3000
     depends_on:
       - db
+      - redis
 
   db:
     image: postgres:14
-    container_name: pg_db
+    container_name: certification_db
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_DB: certification_db
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: certification_redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
+  redis-data:
+  pdf-storage:
