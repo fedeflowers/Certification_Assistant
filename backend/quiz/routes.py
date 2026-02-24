@@ -170,16 +170,8 @@ async def complete_quiz_session(
     else:
         session = await complete_session(db, session)
     
-    incorrect = session.total_questions - session.correct_answers
-    accuracy = (session.correct_answers / session.total_questions * 100) if session.total_questions > 0 else 0
-    
-    return SessionResultsResponse(
-        session_id=session.id,
-        total_questions=session.total_questions,
-        correct_answers=session.correct_answers,
-        incorrect_answers=incorrect,
-        accuracy=round(accuracy, 1)
-    )
+    from quiz.services import build_session_results
+    return await build_session_results(db, session)
 
 
 @router.get("/sessions/{session_id}/results", response_model=SessionResultsResponse)
@@ -188,21 +180,13 @@ async def get_session_results(
     db: AsyncSession = Depends(get_db)
 ):
     """Get results for a completed session."""
+    from quiz.services import build_session_results
     session = await get_session(db, session_id)
     
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    incorrect = session.total_questions - session.correct_answers
-    accuracy = (session.correct_answers / session.total_questions * 100) if session.total_questions > 0 else 0
-    
-    return SessionResultsResponse(
-        session_id=session.id,
-        total_questions=session.total_questions,
-        correct_answers=session.correct_answers,
-        incorrect_answers=incorrect,
-        accuracy=round(accuracy, 1)
-    )
+    return await build_session_results(db, session)
 
 
 @router.get("/suggestions", response_model=SuggestionsResponse)

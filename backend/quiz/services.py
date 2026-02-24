@@ -473,6 +473,55 @@ async def complete_session(db: AsyncSession, session: QuizSession) -> QuizSessio
     return session
 
 
+async def build_session_results(db: AsyncSession, session: QuizSession):
+    """Build full session results with per-topic stats."""
+    from quiz.schemas import SessionResultsResponse, TopicStat
+    
+    incorrect = session.total_questions - session.correct_answers
+    accuracy = (session.correct_answers / session.total_questions * 100) if session.total_questions > 0 else 0
+    
+    # Calculate duration
+    duration = None
+    if session.started_at and session.completed_at:
+        duration = int((session.completed_at - session.started_at).total_seconds())
+    
+    # Per-topic breakdown
+    topic_rows = await db.execute(
+        select(
+            Question.topic,
+            func.count().label("total"),
+            func.count(case((SessionAnswer.is_correct == True, 1))).label("correct"),
+        )
+        .join(SessionAnswer, SessionAnswer.question_id == Question.id)
+        .where(SessionAnswer.session_id == session.id)
+        .group_by(Question.topic)
+        .order_by(func.count().desc())
+    )
+    
+    topic_stats = []
+    for row in topic_rows:
+        t_total = row.total
+        t_correct = row.correct
+        t_acc = (t_correct / t_total * 100) if t_total > 0 else 0
+        topic_stats.append(TopicStat(
+            topic=row.topic or "Uncategorized",
+            total=t_total,
+            correct=t_correct,
+            accuracy=round(t_acc, 1),
+        ))
+    
+    return SessionResultsResponse(
+        session_id=session.id,
+        total_questions=session.total_questions,
+        correct_answers=session.correct_answers,
+        incorrect_answers=incorrect,
+        accuracy=round(accuracy, 1),
+        duration_seconds=duration,
+        session_type=session.session_type,
+        topic_stats=topic_stats,
+    )
+
+
 async def get_suggestions(
     db: AsyncSession,
     certification_id: uuid.UUID

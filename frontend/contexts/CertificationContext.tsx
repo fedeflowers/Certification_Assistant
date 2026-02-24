@@ -13,6 +13,7 @@ interface CertificationContextType {
   selectCertification: (id: string) => void;
   uploadPdf: (file: File) => Promise<UploadResponse>;
   deleteCertification: (id: string) => Promise<void>;
+  renameCertification: (id: string, newName: string) => Promise<void>;
 }
 
 const CertificationContext = createContext<CertificationContextType | undefined>(undefined);
@@ -54,6 +55,16 @@ export function CertificationProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedCertification]);
 
+  const renameCertification = useCallback(async (id: string, newName: string) => {
+    const updated = await api.certifications.rename(id, newName);
+    setCertifications((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, name: updated.name } : c))
+    );
+    if (selectedCertification?.id === id) {
+      setSelectedCertification((prev) => (prev ? { ...prev, name: updated.name } : null));
+    }
+  }, [selectedCertification]);
+
   // Fetch certifications on mount
   useEffect(() => {
     fetchCertifications();
@@ -70,6 +81,7 @@ export function CertificationProvider({ children }: { children: ReactNode }) {
         selectCertification,
         uploadPdf,
         deleteCertification,
+        renameCertification,
       }}
     >
       {children}

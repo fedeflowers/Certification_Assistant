@@ -11,12 +11,15 @@ export default function LibraryPage() {
     certifications, 
     loading, 
     uploadPdf, 
-    deleteCertification, 
+    deleteCertification,
+    renameCertification,
     selectCertification,
     selectedCertification 
   } = useCertification();
 
   const [isDragging, setIsDragging] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const [uploadProgress, setUploadProgress] = useState<{
     certificationId: string;
     status: string;
@@ -238,39 +241,75 @@ export default function LibraryPage() {
               <CardContent className="py-6">
                 <div className="flex items-start justify-between mb-4">
                   <div 
-                    className="flex-1 cursor-pointer"
+                    className="flex-1 min-w-0 cursor-pointer"
                     onClick={() => selectCertification(cert.id)}
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                      {cert.name}
-                    </h3>
+                    {editingId === cert.id ? (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (editName.trim() && editName.trim() !== cert.name) {
+                            await renameCertification(cert.id, editName.trim());
+                          }
+                          setEditingId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={() => setEditingId(null)}
+                          onKeyDown={(e) => { if (e.key === 'Escape') setEditingId(null); }}
+                          className="w-full text-lg font-semibold text-gray-900 border border-primary-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </form>
+                    ) : (
+                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                        {cert.name}
+                      </h3>
+                    )}
                     <p className="text-sm text-gray-500 mt-1">
-                      {cert.question_count} questions
+                      {cert.total_questions} questions
                     </p>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteClick(cert);
-                    }}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete certification"
-                  >
-                    🗑️
-                  </button>
+                  <div className="flex items-center space-x-1 ml-2 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(cert.id);
+                        setEditName(cert.name);
+                      }}
+                      className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                      title="Rename certification"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(cert);
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete certification"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    cert.status === 'completed'
+                    cert.processing_status === 'completed'
                       ? 'bg-green-100 text-green-700'
-                      : cert.status === 'processing'
+                      : cert.processing_status === 'processing'
                       ? 'bg-yellow-100 text-yellow-700'
-                      : cert.status === 'failed'
+                      : cert.processing_status === 'failed'
                       ? 'bg-red-100 text-red-700'
                       : 'bg-gray-100 text-gray-700'
                   }`}>
-                    {cert.status === 'completed' ? '✓ Ready' : cert.status}
+                    {cert.processing_status === 'completed' ? '✓ Ready' : cert.processing_status}
                   </span>
                   <span className="text-gray-400">
                     {new Date(cert.created_at).toLocaleDateString()}

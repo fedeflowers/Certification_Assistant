@@ -12,6 +12,7 @@ export default function QuizSessionPage() {
     currentQuestion,
     currentQuestionIndex,
     totalQuestions,
+    answers,
     submitAnswer,
     nextQuestion,
     previousQuestion,
@@ -21,22 +22,27 @@ export default function QuizSessionPage() {
   } = useQuiz();
 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [explanation, setExplanation] = useState<string>('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   useEffect(() => {
-    if (!currentSession) {
+    if (!currentSession && !isEnding) {
       router.push('/quiz');
     }
-  }, [currentSession, router]);
+  }, [currentSession, router, isEnding]);
 
   useEffect(() => {
-    // Reset state when question changes
-    setSelectedAnswer(null);
-    setShowFeedback(false);
-    setIsCorrect(null);
-    setExplanation('');
+    // Reset state when question changes, check if already answered
+    if (currentQuestion) {
+      const existing = answers.get(currentQuestion.id);
+      if (existing) {
+        setSelectedAnswer(existing.user_answer);
+        setIsSubmitted(true);
+      } else {
+        setSelectedAnswer(null);
+        setIsSubmitted(false);
+      }
+    }
   }, [currentQuestion?.id]);
 
   if (!currentSession || !currentQuestion) {
@@ -50,11 +56,12 @@ export default function QuizSessionPage() {
   const handleSubmit = async () => {
     if (!selectedAnswer) return;
 
-    const result = await submitAnswer(selectedAnswer);
-    if (result) {
-      setIsCorrect(result.is_correct);
-      setExplanation(result.explanation || '');
-      setShowFeedback(true);
+    await submitAnswer(selectedAnswer);
+    setIsSubmitted(true);
+
+    // Auto-advance to next question or finish
+    if (currentQuestionIndex < totalQuestions - 1) {
+      setTimeout(() => nextQuestion(), 300);
     }
   };
 
@@ -62,17 +69,18 @@ export default function QuizSessionPage() {
     if (currentQuestionIndex < totalQuestions - 1) {
       nextQuestion();
     } else {
-      // End of quiz
       handleEndQuiz();
     }
   };
 
   const handleEndQuiz = async () => {
+    setIsEnding(true);
     await endSession();
     router.push('/quiz/results');
   };
 
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  const answeredCount = answers.size;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -83,6 +91,9 @@ export default function QuizSessionPage() {
             Question {currentQuestionIndex + 1} of {totalQuestions}
           </span>
           <ProgressBar value={progress} max={100} className="w-48" />
+          <span className="text-xs text-gray-400">
+            {answeredCount}/{totalQuestions} answered
+          </span>
         </div>
         <div className="flex items-center space-x-2">
           <Button
@@ -128,40 +139,27 @@ export default function QuizSessionPage() {
             {currentQuestion.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index); // A, B, C, D...
               const isSelected = selectedAnswer === letter;
-              const isCorrectAnswer = showFeedback && letter === currentQuestion.correct_answer;
-              const isWrongSelection = showFeedback && isSelected && !isCorrect;
 
               let optionClasses = 'w-full p-4 rounded-lg border-2 text-left transition-all ';
-              
-              if (showFeedback) {
-                if (isCorrectAnswer) {
-                  optionClasses += 'border-green-500 bg-green-50 text-green-900';
-                } else if (isWrongSelection) {
-                  optionClasses += 'border-red-500 bg-red-50 text-red-900';
-                } else {
-                  optionClasses += 'border-gray-200 bg-gray-50 text-gray-600';
-                }
-              } else {
-                optionClasses += isSelected
-                  ? 'border-primary-500 bg-primary-50 text-primary-900'
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50';
-              }
+              optionClasses += isSelected
+                ? 'border-primary-500 bg-primary-50 text-primary-900'
+                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50';
 
               return (
                 <button
                   key={letter}
-                  onClick={() => !showFeedback && setSelectedAnswer(letter)}
-                  disabled={showFeedback}
+                  onClick={() => {
+                    if (!isSubmitted) {
+                      setSelectedAnswer(letter);
+                    }
+                  }}
+                  disabled={isSubmitted}
                   className={optionClasses}
                 >
                   <div className="flex items-start space-x-3">
                     <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-                      isSelected && !showFeedback
+                      isSelected
                         ? 'bg-primary-500 text-white'
-                        : isCorrectAnswer
-                        ? 'bg-green-500 text-white'
-                        : isWrongSelection
-                        ? 'bg-red-500 text-white'
                         : 'bg-gray-200 text-gray-700'
                     }`}>
                       {letter}
@@ -173,23 +171,12 @@ export default function QuizSessionPage() {
             })}
           </div>
 
-          {/* Feedback Section */}
-          {showFeedback && (
-            <div className={`mt-6 p-4 rounded-lg ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-center space-x-2 mb-2">
-                <span className="text-2xl">{isCorrect ? '✅' : '❌'}</span>
-                <span className={`font-semibold ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                  {isCorrect ? 'Correct!' : 'Incorrect'}
-                </span>
-              </div>
-              {explanation && (
-                <p className="text-gray-700 mt-2">{explanation}</p>
-              )}
-              {!isCorrect && (
-                <p className="text-gray-600 mt-2">
-                  The correct answer is: <strong>{currentQuestion.correct_answer}</strong>
-                </p>
-              )}
+          {/* Submitted indicator */}
+          {isSubmitted && (
+            <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200 text-center">
+              <span className="text-sm text-gray-600">
+                ✓ Answer submitted — you&apos;ll see the result at the end of the quiz
+              </span>
             </div>
           )}
         </CardContent>
@@ -206,7 +193,7 @@ export default function QuizSessionPage() {
         </Button>
 
         <div className="flex space-x-3">
-          {!showFeedback ? (
+          {!isSubmitted ? (
             <Button
               onClick={handleSubmit}
               disabled={!selectedAnswer || loading}

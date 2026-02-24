@@ -81,13 +81,22 @@ export interface QuizSession {
   current_question_index: number;
 }
 
+export interface TopicStat {
+  topic: string;
+  total: number;
+  correct: number;
+  accuracy: number;
+}
+
 export interface SessionResults {
   session_id: string;
   total_questions: number;
   correct_answers: number;
   incorrect_answers: number;
   accuracy: number;
-  time_spent?: number;
+  duration_seconds?: number;
+  session_type?: string;
+  topic_stats: TopicStat[];
 }
 
 export interface AnswerResponse {

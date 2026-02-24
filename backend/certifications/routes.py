@@ -201,3 +201,32 @@ async def remove_certification(
         raise HTTPException(status_code=404, detail="Certification not found")
     
     return {"message": "Certification deleted successfully"}
+
+
+@router.patch("/{certification_id}", response_model=CertificationListResponse)
+async def update_certification_name(
+    certification_id: uuid.UUID,
+    body: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Rename a certification."""
+    new_name = body.get("name")
+    if not new_name or not new_name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    
+    certification = await get_certification(db, certification_id)
+    if not certification:
+        raise HTTPException(status_code=404, detail="Certification not found")
+    
+    certification.name = new_name.strip()
+    await db.commit()
+    await db.refresh(certification)
+    
+    return CertificationListResponse(
+        id=certification.id,
+        name=certification.name,
+        slug=certification.slug,
+        total_questions=certification.total_questions,
+        processing_status=certification.processing_status,
+        created_at=certification.created_at,
+    )

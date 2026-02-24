@@ -60,6 +60,14 @@ class AnswerResponse(BaseModel):
     explanation: str
 
 
+class TopicStat(BaseModel):
+    """Per-topic statistics."""
+    topic: str
+    total: int
+    correct: int
+    accuracy: float
+
+
 class SessionResultsResponse(BaseModel):
     """Schema for completed session results."""
     session_id: UUID
@@ -67,7 +75,9 @@ class SessionResultsResponse(BaseModel):
     correct_answers: int
     incorrect_answers: int
     accuracy: float
-    time_spent: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    session_type: Optional[str] = None
+    topic_stats: List[TopicStat] = []
 
 
 class QuizSuggestion(BaseModel):

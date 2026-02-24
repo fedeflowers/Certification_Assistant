@@ -72,7 +72,7 @@ export default function DashboardPage() {
             <Card>
               <CardContent className="py-6 text-center">
                 <div className="text-3xl font-bold text-primary-600">
-                  {statsLoading ? <LoadingSpinner size="md" /> : overallStats?.total_questions || 0}
+                  {statsLoading ? <LoadingSpinner size="md" /> : selectedCertification.total_questions}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Total Questions</div>
               </CardContent>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
             <Card>
               <CardContent className="py-6 text-center">
                 <div className="text-3xl font-bold text-green-600">
-                  {statsLoading ? <LoadingSpinner size="md" /> : overallStats?.questions_attempted || 0}
+                  {statsLoading ? <LoadingSpinner size="md" /> : overallStats?.total_questions_answered || 0}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Attempted</div>
               </CardContent>
