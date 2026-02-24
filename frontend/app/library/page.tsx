@@ -86,8 +86,8 @@ export default function LibraryPage() {
           message: status.message || ''
         });
 
-        if (status.status === 'processing') {
-          setTimeout(poll, 1000); // Poll faster for better UX
+        if (status.status === 'pending' || status.status === 'processing') {
+          setTimeout(poll, 1000);
         } else if (status.status === 'completed') {
           // Refresh certifications list
           setTimeout(() => {
@@ -165,7 +165,7 @@ export default function LibraryPage() {
         <Card className="border-2 border-primary-200">
           <CardContent className="py-6">
             <div className="flex items-center space-x-4">
-              {uploadProgress.status === 'processing' ? (
+              {uploadProgress.status === 'processing' || uploadProgress.status === 'pending' ? (
                 <LoadingSpinner size="md" />
               ) : uploadProgress.status === 'completed' ? (
                 <span className="text-2xl">✅</span>
@@ -176,7 +176,9 @@ export default function LibraryPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <span className="font-medium text-gray-900">
-                      {uploadProgress.status === 'processing'
+                      {uploadProgress.status === 'pending'
+                        ? 'Preparing to process...'
+                        : uploadProgress.status === 'processing'
                         ? uploadProgress.message || 'Processing PDF...'
                         : uploadProgress.status === 'completed'
                         ? 'Processing complete!'
