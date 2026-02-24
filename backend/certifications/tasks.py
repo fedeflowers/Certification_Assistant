@@ -102,7 +102,7 @@ def split_into_question_blocks(text: str) -> List[str]:
     return blocks
 
 
-async def parse_question_with_llm(block: str) -> Optional[Dict[str, Any]]:
+async def parse_question_with_llm(block: str, existing_topics: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
     """Parse a question block using LLM with caching."""
     # Skip cache for now to avoid Redis event loop issues
     
@@ -123,15 +123,28 @@ async def parse_question_with_llm(block: str) -> Optional[Dict[str, Any]]:
         elif settings.openai_api_key:
             llm = ChatOpenAI(
                 temperature=0,
-                model_name="gpt-4o-mini",
+                model_name="gpt-4.1-mini",
                 openai_api_key=settings.openai_api_key
             )
         else:
             print("[TASK ERROR] No LLM API key configured", flush=True)
             return None
         
+        # Build topic instruction based on existing topics
+        if existing_topics:
+            topics_list = ", ".join(f'"{t}"' for t in existing_topics)
+            topic_instruction = (
+                f'"topic": assign the question to one of the existing topics if it fits: [{topics_list}]. '
+                'Only create a new concise topic if the question clearly does not belong to any of the existing ones.'
+            )
+        else:
+            topic_instruction = (
+                '"topic": a short topic/category for this question (e.g., "Delta Lake", "Spark SQL", '
+                '"Data Pipelines", "Security", etc.) - choose a concise, relevant topic based on the question content'
+            )
+        
         prompt_template = PromptTemplate(
-            input_variables=["input_text"],
+            input_variables=["input_text", "topic_instruction"],
             template="""
 You are an expert teacher. Given a multiple-choice question with its options, respond in JSON format as follows:
 
@@ -139,7 +152,7 @@ You are an expert teacher. Given a multiple-choice question with its options, re
 "options": a list of options as strings, each starting with a letter label (A., B., C., ...) — if the input options do not have letters, add them in this format 
 "correct_answer": the letter and text of the correct option (e.g. "B. Example answer") 
 "explanation": a detailed explanation of why the answer is correct
-"topic": a short topic/category for this question (e.g., "Delta Lake", "Spark SQL", "Data Pipelines", "Security", etc.) - choose a concise, relevant topic based on the question content
+{topic_instruction}
 
 Question text + options: 
 {input_text}
@@ -153,7 +166,10 @@ Respond only with valid JSON:
         # Use synchronous invoke directly (LangChain handles this)
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(chain.invoke, {"input_text": block.strip()})
+            future = executor.submit(chain.invoke, {
+                "input_text": block.strip(),
+                "topic_instruction": topic_instruction,
+            })
             raw_response = future.result(timeout=60)
         
         # Clean and parse JSON
@@ -234,6 +250,7 @@ async def process_pdf_background(certification_id: UUID, pdf_path: str):
                 
                 # Process each block
                 questions_created = 0
+                extracted_topics: List[str] = []  # Track topics for consistency
                 cert.processing_total_blocks = total_blocks
                 cert.processing_current_block = 0
                 await db.commit()
@@ -243,7 +260,7 @@ async def process_pdf_background(certification_id: UUID, pdf_path: str):
                     cert.processing_current_block = i + 1
                     
                     try:
-                        question_data = await parse_question_with_llm(block)
+                        question_data = await parse_question_with_llm(block, existing_topics=extracted_topics or None)
                     except Exception as llm_err:
                         print(f"[TASK ERROR] LLM failed for block {i+1}: {llm_err}", flush=True)
                         question_data = None
@@ -264,7 +281,11 @@ async def process_pdf_background(certification_id: UUID, pdf_path: str):
                         await db.flush()
                         questions_created += 1
                         cert.total_questions = questions_created
-                        print(f"[TASK] Question {i+1} created (topic: {question_data.get('topic', 'N/A')})", flush=True)
+                        # Track extracted topic for future questions
+                        topic = question_data.get("topic")
+                        if topic and topic not in extracted_topics:
+                            extracted_topics.append(topic)
+                        print(f"[TASK] Question {i+1} created (topic: {topic or 'N/A'}, known topics: {len(extracted_topics)})", flush=True)
                     else:
                         print(f"[TASK WARN] Block {i+1} skipped (no valid question)", flush=True)
                     
