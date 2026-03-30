@@ -47,6 +47,7 @@ export interface Question {
   correct_answer: string;
   explanation: string;
   has_images: boolean;
+  is_multi_select: boolean;
   topic?: string;
   difficulty?: string;
   images: QuestionImage[];

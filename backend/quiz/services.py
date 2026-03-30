@@ -9,11 +9,46 @@ from sqlalchemy import select, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+import re
+
 from shared.models import (
     Certification, Question, QuizSession, SessionAnswer,
     BookmarkedQuestion
 )
 from quiz.schemas import QuizSuggestion
+
+
+def _extract_answer_letters(answer: str) -> set[str]:
+    """Extract answer letters from an answer string.
+    Handles formats like 'B', 'A,C', 'A, C', 'A. Foo, C. Bar', 'AC',
+    'A. Foo\\nC. Bar', 'A. Foo and C. Bar'."""
+    # Split by comma, newline, or ' and '
+    parts = re.split(r'[,\n]| and ', answer)
+    letters = set()
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        m = re.match(r'^([A-Za-z])(?:\.|\b)', part)
+        if m:
+            letters.add(m.group(1).upper())
+    if letters:
+        return letters
+    # Fallback: consecutive uppercase letters (e.g. "AC")
+    stripped = answer.strip().upper()
+    if stripped.isalpha() and len(stripped) <= 6:
+        return set(stripped)
+    # Last resort: first character
+    if stripped:
+        return {stripped[0]}
+    return set()
+
+
+def check_answer_correct(user_answer: str, correct_answer: str) -> bool:
+    """Check if user answer matches correct answer, supporting multi-select."""
+    user_letters = _extract_answer_letters(user_answer)
+    correct_letters = _extract_answer_letters(correct_answer)
+    return user_letters == correct_letters
 
 
 async def get_weak_topics(
@@ -410,13 +445,13 @@ async def submit_answer(
     if existing_answer:
         # Update existing answer
         existing_answer.user_answer = user_answer
-        existing_answer.is_correct = user_answer.strip().upper() == question.correct_answer.strip().upper()[0]
+        existing_answer.is_correct = check_answer_correct(user_answer, question.correct_answer)
         existing_answer.answered_at = datetime.utcnow()
         existing_answer.time_spent_seconds = time_spent_seconds
         answer = existing_answer
     else:
         # Create new answer
-        is_correct = user_answer.strip().upper() == question.correct_answer.strip().upper()[0]
+        is_correct = check_answer_correct(user_answer, question.correct_answer)
         
         answer = SessionAnswer(
             session_id=session.id,

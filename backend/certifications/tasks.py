@@ -297,7 +297,7 @@ You are an expert teacher. Given a multiple-choice question with its options, re
 
 "question": the question text 
 "options": a list of options as strings, each starting with a letter label (A., B., C., ...) — if the input options do not have letters, add them in this format 
-"correct_answer": the letter and text of the correct option (e.g. "B. Example answer") 
+"correct_answer": the letter(s) and text of the correct option(s). For single-answer questions use e.g. "B. Example answer". For multiple-answer questions (e.g. "choose two", "select all that apply") list ALL correct options separated by commas, e.g. "A. First answer, C. Third answer" 
 "explanation": a detailed explanation of why the answer is correct
 {topic_instruction}
 

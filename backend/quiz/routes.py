@@ -12,11 +12,36 @@ from quiz.schemas import (
     SessionResultsResponse, SuggestionsResponse, BookmarkCreate,
     BookmarkResponse, QuestionWithAnswerResponse, TopicsResponse, TopicInfo
 )
+import re
+
 from quiz.services import (
     create_session, get_session, get_session_questions,
     submit_answer, complete_session, get_suggestions,
     add_bookmark, remove_bookmark, list_bookmarks, get_topics_for_certification
 )
+
+
+def _is_multi_select(question_text: str, correct_answer: str) -> bool:
+    """Detect if a question requires multiple answers."""
+    text_lower = question_text.lower()
+    # Check question text for multi-select indicators
+    multi_patterns = [
+        r'choose\s+(two|three|four|five|2|3|4|5)',
+        r'select\s+(two|three|four|five|2|3|4|5)',
+        r'select\s+all\s+that\s+apply',
+        r'choose\s+all\s+that\s+apply',
+        r'pick\s+(two|three|four|five|2|3|4|5)',
+        r'\(choose\s+\d+\)',
+        r'\(select\s+\d+\)',
+    ]
+    for pattern in multi_patterns:
+        if re.search(pattern, text_lower):
+            return True
+    # Check correct_answer for multiple letters
+    letters = re.findall(r'(?:^|,\s*)([A-Za-z])(?:\.|\b)', correct_answer)
+    if len(letters) > 1:
+        return True
+    return False
 
 
 router = APIRouter()
@@ -93,6 +118,7 @@ async def get_questions_for_session(
             correct_answer=q.correct_answer,
             explanation=q.explanation,
             has_images=q.has_images,
+            is_multi_select=_is_multi_select(q.question_text, q.correct_answer),
             images=[
                 {
                     "id": str(img.id),

@@ -124,6 +124,7 @@ class QuestionWithAnswerResponse(BaseModel):
     correct_answer: str
     explanation: str
     has_images: bool
+    is_multi_select: bool = False
     images: List[Dict[str, Any]] = []
     is_bookmarked: bool = False
     user_answer: Optional[str] = None

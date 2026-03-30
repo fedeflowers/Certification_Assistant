@@ -22,6 +22,7 @@ export default function QuizSessionPage() {
   } = useQuiz();
 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<Set<string>>(new Set());
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
@@ -36,10 +37,17 @@ export default function QuizSessionPage() {
     if (currentQuestion) {
       const existing = answers.get(currentQuestion.id);
       if (existing) {
-        setSelectedAnswer(existing.user_answer);
+        if (currentQuestion.is_multi_select) {
+          setSelectedAnswers(new Set(existing.user_answer.split(',').map(s => s.trim())));
+          setSelectedAnswer(null);
+        } else {
+          setSelectedAnswer(existing.user_answer);
+          setSelectedAnswers(new Set());
+        }
         setIsSubmitted(true);
       } else {
         setSelectedAnswer(null);
+        setSelectedAnswers(new Set());
         setIsSubmitted(false);
       }
     }
@@ -54,9 +62,12 @@ export default function QuizSessionPage() {
   }
 
   const handleSubmit = async () => {
-    if (!selectedAnswer) return;
+    const answerStr = currentQuestion?.is_multi_select
+      ? Array.from(selectedAnswers).sort().join(',')
+      : selectedAnswer;
+    if (!answerStr) return;
 
-    await submitAnswer(selectedAnswer);
+    await submitAnswer(answerStr);
     setIsSubmitted(true);
 
     // Auto-advance to next question or finish
@@ -117,6 +128,11 @@ export default function QuizSessionPage() {
             <h2 className="text-xl font-semibold text-gray-900 leading-relaxed">
               {currentQuestion.question_text}
             </h2>
+            {currentQuestion.is_multi_select && (
+              <p className="text-sm font-medium text-primary-600 mt-2">
+                ⚡ Select all correct answers
+              </p>
+            )}
           </div>
 
           {/* Question Images */}
@@ -138,7 +154,10 @@ export default function QuizSessionPage() {
           <div className="space-y-3">
             {currentQuestion.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index); // A, B, C, D...
-              const isSelected = selectedAnswer === letter;
+              const isMulti = currentQuestion.is_multi_select;
+              const isSelected = isMulti
+                ? selectedAnswers.has(letter)
+                : selectedAnswer === letter;
 
               let optionClasses = 'w-full p-4 rounded-lg border-2 text-left transition-all ';
               optionClasses += isSelected
@@ -150,7 +169,16 @@ export default function QuizSessionPage() {
                   key={letter}
                   onClick={() => {
                     if (!isSubmitted) {
-                      setSelectedAnswer(letter);
+                      if (isMulti) {
+                        setSelectedAnswers((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(letter)) next.delete(letter);
+                          else next.add(letter);
+                          return next;
+                        });
+                      } else {
+                        setSelectedAnswer(letter);
+                      }
                     }
                   }}
                   disabled={isSubmitted}
@@ -196,7 +224,11 @@ export default function QuizSessionPage() {
           {!isSubmitted ? (
             <Button
               onClick={handleSubmit}
-              disabled={!selectedAnswer || loading}
+              disabled={(
+                currentQuestion?.is_multi_select
+                  ? selectedAnswers.size === 0
+                  : !selectedAnswer
+              ) || loading}
               loading={loading}
             >
               Submit Answer
